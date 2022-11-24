@@ -9,7 +9,8 @@
     #http_proxy: http://cloudproxy-t.nat.bt.com:8080
     #https_proxy: http://cloudproxy-t.nat.bt.com:8080
 
-
+  vars_files:
+    - /etc/ansible/vault-pass.yml
   vars:
     es_http_port: 9200
     es_old_version: 7.16.2
