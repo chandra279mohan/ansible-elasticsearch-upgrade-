@@ -50,10 +50,10 @@
       register: response
 
     - name: disable shard allocation
-      command: sudo curl -u elastic -XPUT "https://{{ ansible_facts['nodename'] }}:9200/_cluster/settings?pretty" --cacert /etc/elasticsearch/elastic-certificates-ca_1.pem -H 'Content-Type:application/json' -d '{ "persistent":{ "cluster.routing.allocation.enable":"primaries"}}'
+      command: sudo curl -u elastic:{{ password }} -XPUT "https://{{ ansible_facts['nodename'] }}:9200/_cluster/settings?pretty" --cacert /etc/elasticsearch/elastic-certificates-ca_1.pem -H 'Content-Type:application/json' -d '{ "persistent":{ "cluster.routing.allocation.enable":"primaries"}}'
        
     - name: stop non essential indexing to speed up shard recovery - no problem if return error (can be ignored)
-      command: curl -u elastic -X POST "localhost:9200/_flush/synced?pretty" --cacert /etc/elasticsearch/elastic-certificates-ca_1.pem
+      command: curl -u elastic:{{ password }} -X POST "localhost:9200/_flush/synced?pretty" --cacert /etc/elasticsearch/elastic-certificates-ca_1.pem
 
     - name: Stop service Elasticsearch, if not started
       ansible.builtin.systemd:
@@ -113,16 +113,16 @@
         timeout: 300
 
     - name: enable shard allocation
-      command: sudo curl -u elastic -XPUT "https://{{ ansible_facts['nodename'] }}:9200/_cluster/settings?pretty" --cacert /etc/elasticsearch/elastic-certificates-ca_1.pem -H 'Content-Type:application/json' -d '{ "persistent":{ "cluster.routing.allocation.enable":null}}'
+      command: sudo curl -u elastic:{{ password }} -XPUT "https://{{ ansible_facts['nodename'] }}:9200/_cluster/settings?pretty" --cacert /etc/elasticsearch/elastic-certificates-ca_1.pem -H 'Content-Type:application/json' -d '{ "persistent":{ "cluster.routing.allocation.enable":null}}'
 
     - name: Wait for cluster health to return to green
-      command: sudo curl  -u elastic  -XGET "https://{{ ansible_facts['nodename'] }}:61000/_cluster/health?pretty" --cacert /etc/elasticsearch/elastic-certificates-ca_1.pem
+      command: sudo curl  -u elastic:{{ password }}  -XGET "https://{{ ansible_facts['nodename'] }}:61000/_cluster/health?pretty" --cacert /etc/elasticsearch/elastic-certificates-ca_1.pem
       register: response
       until: "'green' in response.stdout"
       retries: 10
       delay: 15
       
-    - command: sudo curl  -u elastic  -XGET "https://{{ ansible_facts['nodename'] }}:61000/_cat/nodes?pretty" --cacert 
+    - command: sudo curl  -u elastic:{{ password }}  -XGET "https://{{ ansible_facts['nodename'] }}:61000/_cat/nodes?pretty" --cacert 
       register: nodes
       retries: 10
       delay: 15
