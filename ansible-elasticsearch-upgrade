@@ -12,7 +12,7 @@
   vars_files:
     - /etc/ansible/vault-pass.yml
   vars:
-    es_http_port: 9200
+    es_http_port: ############################
     es_old_version: 7.16.2
     es_new_version: 7.17.2
     elastic_user: elastic
@@ -51,10 +51,12 @@
 
     - name: disable shard allocation
       command: sudo curl -u elastic:{{ password }} -XPUT "https://{{ ansible_facts['nodename'] }}:9200/_cluster/settings?pretty" --cacert /etc/elasticsearch/elastic-certificates-ca_1.pem -H 'Content-Type:application/json' -d '{ "persistent":{ "cluster.routing.allocation.enable":"primaries"}}'
-       
+      no_log: True
+      
     - name: stop non essential indexing to speed up shard recovery - no problem if return error (can be ignored)
       command: curl -u elastic:{{ password }} -X POST "localhost:9200/_flush/synced?pretty" --cacert /etc/elasticsearch/elastic-certificates-ca_1.pem
-
+      no_log: True
+      
     - name: Stop service Elasticsearch, if not started
       ansible.builtin.systemd:
         name: elasticsearch
@@ -114,18 +116,21 @@
 
     - name: enable shard allocation
       command: sudo curl -u elastic:{{ password }} -XPUT "https://{{ ansible_facts['nodename'] }}:9200/_cluster/settings?pretty" --cacert /etc/elasticsearch/elastic-certificates-ca_1.pem -H 'Content-Type:application/json' -d '{ "persistent":{ "cluster.routing.allocation.enable":null}}'
-
+      no_log: True
+      
     - name: Wait for cluster health to return to green
       command: sudo curl  -u elastic:{{ password }}  -XGET "https://{{ ansible_facts['nodename'] }}:61000/_cluster/health?pretty" --cacert /etc/elasticsearch/elastic-certificates-ca_1.pem
       register: response
       until: "'green' in response.stdout"
       retries: 10
       delay: 15
+      no_log: True
       
     - command: sudo curl  -u elastic:{{ password }}  -XGET "https://{{ ansible_facts['nodename'] }}:61000/_cat/nodes?pretty" --cacert 
       register: nodes
       retries: 10
       delay: 15
+      no_log: True
       
     - name: checking elasticsearch service status
       ansible.builtin.command: systemctl status elasticsearch
