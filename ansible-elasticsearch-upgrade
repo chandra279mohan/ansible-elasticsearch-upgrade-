@@ -1,0 +1,138 @@
+---
+- name: Elasticsearch upgrade 
+  hosts: elastic
+  serial: 1
+  order: inventory
+  become: true
+  gather_facts: false
+  #environment:
+    #http_proxy: http://cloudproxy-t.nat.bt.com:8080
+    #https_proxy: http://cloudproxy-t.nat.bt.com:8080
+
+
+  vars:
+    es_http_port: 9200
+    es_old_version: 7.16.2
+    es_new_version: 7.17.2
+    elastic_user: elastic
+    elastic_password: ########
+    plugins_list : 
+      - mapper-size
+    plugin_version: 7.17.2
+    elastic_home: /usr/share/elasticsearch
+    elastic_config: /etc/elasticsearch
+    elastic_home_backup: /opt/elasticsearch_home_backup_7.16.2
+    elastic_config_backup: /opt/elasticsearch_config_backup_7.16.2
+    
+
+#add backup , proxy command's & ansible output to a file
+
+  tasks:
+ 
+    - name: Take backup of elasticsearch home directory
+      ansible.builtin.command: cp -rp "{{elastic_home}}"  "{{elastic_home_backup}}"
+      
+    - name: Take backup of elasticsearch config directory
+      ansible.builtin.command: cp -rp "{{elastic_config}}" "{{elastic_config_backup}}"
+        
+    - name: Download Elasticsearch RPM package 7.17.2
+      ansible.builtin.get_url:
+        url: https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-{{ es_new_version }}-x86_64.rpm
+        dest: /opt
+        #checksum: "sha512:https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-{{ es_new_version }}-x86_64.rpm.sha512"
+
+    - name: Ensure elasticsearch service is running
+      systemd:
+        name: elasticsearch
+        enabled: yes
+        state: started
+      register: response
+
+    - name: disable shard allocation
+      command: sudo curl -u elastic -XPUT "https://{{ ansible_facts['nodename'] }}:9200/_cluster/settings?pretty" --cacert /etc/elasticsearch/elastic-certificates-ca_1.pem -H 'Content-Type:application/json' -d '{ "persistent":{ "cluster.routing.allocation.enable":"primaries"}}'
+       
+    - name: stop non essential indexing to speed up shard recovery - no problem if return error (can be ignored)
+      command: curl -u elastic -X POST "localhost:9200/_flush/synced?pretty" --cacert /etc/elasticsearch/elastic-certificates-ca_1.pem
+
+    - name: Stop service Elasticsearch, if not started
+      ansible.builtin.systemd:
+        name: elasticsearch
+        state: stopped
+
+    - name: upgrade elasticsearch
+      ansible.builtin.yum:
+        name: /opt/elasticsearch-{{ es_new_version }}-x86_64.rpm
+        state: latest
+
+    - name: list elasticsearch plugins installed
+      command: 
+        cmd : /usr/share/elasticsearch/bin/elasticsearch-plugin list
+      register: plugins_list
+      tags:
+        - es_plugin_upgrade
+
+    - name: remove installed plugins
+      command: 
+        cmd: /usr/share/elasticsearch/bin/elasticsearch-plugin remove {{ item }}
+      with_items:
+        - "{{ plugins_list }}"
+      ignore_errors: yes
+      tags:
+        - es_plugin_upgrade
+
+    - name: download elasticsearch plugin
+      ansible.builtin.get_url:
+        url: https://artifacts.elastic.co/downloads/elasticsearch-plugins/{{ item }}/{{ item }}-{{ plugin_version }}.zip
+        dest: "{{ elastic_home }}"
+      with_items: 
+        - "{{ plugins_list }}"
+      tags:
+        - es_plugin_upgrade
+
+    - name: Install elasticsearch plugin
+      command: "{{ elastic_home }}/bin/elasticsearch-plugin install file:{{ elastic_home }}/{{ item }}-{{ plugin_version }}.zip"
+      loop: "{{ plugins_list }}"
+      tags:
+        - es_plugin_upgrade
+
+    - name: systemctl daemon-reload
+      ansible.builtin.systemd:
+        daemon_reload: yes
+
+    - name: Restart service Elasticsearch, if not started
+      ansible.builtin.systemd:
+        state: restarted
+        name: elasticsearch
+                
+    - name: Make sure Elasticsearch is running before proceeding.
+      wait_for:
+        host: "localhost"
+        port: "9200"
+        delay: 10
+        timeout: 300
+
+    - name: enable shard allocation
+      command: sudo curl -u elastic -XPUT "https://{{ ansible_facts['nodename'] }}:9200/_cluster/settings?pretty" --cacert /etc/elasticsearch/elastic-certificates-ca_1.pem -H 'Content-Type:application/json' -d '{ "persistent":{ "cluster.routing.allocation.enable":null}}'
+
+    - name: Wait for cluster health to return to green
+      command: sudo curl  -u elastic  -XGET "https://{{ ansible_facts['nodename'] }}:61000/_cluster/health?pretty" --cacert /etc/elasticsearch/elastic-certificates-ca_1.pem
+      register: response
+      until: "'green' in response.stdout"
+      retries: 10
+      delay: 15
+      
+    - command: sudo curl  -u elastic  -XGET "https://{{ ansible_facts['nodename'] }}:61000/_cat/nodes?pretty" --cacert 
+      register: nodes
+      retries: 10
+      delay: 15
+      
+    - name: checking elasticsearch service status
+      ansible.builtin.command: systemctl status elasticsearch
+      register: result
+      until: "'active (running)' in result.stdout"
+      retries: 15
+      delay: 15
+      
+    - name: Pause for 1 minute
+      ansible.builtin.pause:
+        minutes: 1
