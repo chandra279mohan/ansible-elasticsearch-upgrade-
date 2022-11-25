@@ -5,14 +5,14 @@
   order: inventory
   become: true
   gather_facts: true
-  #environment:
-    #http_proxy: http://cloudproxy-t.nat.bt.com:8080
-    #https_proxy: http://cloudproxy-t.nat.bt.com:8080
+  environment:
+    http_proxy: http://cloudproxy-t.nat.bt.com:8080
+    https_proxy: http://cloudproxy-t.nat.bt.com:8080
 
   vars_files:
     - /etc/ansible/vault-pass.yml
   vars:
-    es_http_port: ############################
+    es_http_port: 61000
     es_old_version: 7.16.2
     es_new_version: 7.17.2
     elastic_user: elastic
@@ -50,11 +50,11 @@
       register: response
 
     - name: disable shard allocation
-      command: sudo curl -u elastic:{{ password }} -XPUT "https://{{ ansible_facts['nodename'] }}:9200/_cluster/settings?pretty" --cacert /etc/elasticsearch/elastic-certificates-ca_1.pem -H 'Content-Type:application/json' -d '{ "persistent":{ "cluster.routing.allocation.enable":"primaries"}}'
+      command: sudo curl -u elastic:{{ password }} -XPUT "https://{{ ansible_facts['nodename'] }}:61000/_cluster/settings?pretty" --cacert /etc/elasticsearch/elastic-certificates-ca_1.pem -H 'Content-Type:application/json' -d '{ "persistent":{ "cluster.routing.allocation.enable":"primaries"}}'
       no_log: True
       
     - name: stop non essential indexing to speed up shard recovery - no problem if return error (can be ignored)
-      command: curl -u elastic:{{ password }} -X POST "localhost:9200/_flush/synced?pretty" --cacert /etc/elasticsearch/elastic-certificates-ca_1.pem
+      command: curl -u elastic:{{ password }} -X POST "https://{{ ansible_facts['nodename'] }}:61000/_flush/synced?pretty" --cacert /etc/elasticsearch/elastic-certificates-ca_1.pem
       no_log: True
       
     - name: Stop service Elasticsearch, if not started
@@ -109,13 +109,13 @@
                 
     - name: Make sure Elasticsearch is running before proceeding.
       wait_for:
-        host: "localhost"
-        port: "9200"
+        host: "{{ ansible_facts['nodename'] }}"
+        port: "61000"
         delay: 10
         timeout: 300
 
     - name: enable shard allocation
-      command: sudo curl -u elastic:{{ password }} -XPUT "https://{{ ansible_facts['nodename'] }}:9200/_cluster/settings?pretty" --cacert /etc/elasticsearch/elastic-certificates-ca_1.pem -H 'Content-Type:application/json' -d '{ "persistent":{ "cluster.routing.allocation.enable":null}}'
+      command: sudo curl -u elastic:{{ password }} -XPUT "https://{{ ansible_facts['nodename'] }}:61000/_cluster/settings?pretty" --cacert /etc/elasticsearch/elastic-certificates-ca_1.pem -H 'Content-Type:application/json' -d '{ "persistent":{ "cluster.routing.allocation.enable":null}}'
       no_log: True
       
     - name: Wait for cluster health to return to green
