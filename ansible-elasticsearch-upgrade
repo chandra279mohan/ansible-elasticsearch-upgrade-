@@ -70,7 +70,7 @@
     - name: list elasticsearch plugins installed
       command: 
         cmd : /usr/share/elasticsearch/bin/elasticsearch-plugin list
-      register: plugins_list
+      #register: plugins_list
       tags:
         - es_plugin_upgrade
 
@@ -122,15 +122,20 @@
       command: sudo curl  -u elastic:{{ password }}  -XGET "https://{{ ansible_facts['nodename'] }}:61000/_cluster/health?pretty" --cacert /etc/elasticsearch/elastic-certificates-ca_1.pem
       register: response
       until: "'green' in response.stdout"
-      retries: 10
+      retries: 50
       delay: 15
       no_log: True
       
-    - command: sudo curl  -u elastic:{{ password }}  -XGET "https://{{ ansible_facts['nodename'] }}:61000/_cat/nodes?pretty" --cacert 
+    - name: Check nodes
+      command: sudo curl  -u elastic:{{ password }}  -XGET "https://{{ ansible_facts['nodename'] }}:61000/_cat/nodes?pretty" --cacert /etc/elasticsearch/elastic-certificates-ca_1.pem
       register: nodes
       retries: 10
       delay: 15
       no_log: True
+      
+    - name: Elasticsearch nodes
+      debug:
+        var: nodes.stdout_lines
       
     - name: checking elasticsearch service status
       ansible.builtin.command: systemctl status elasticsearch
