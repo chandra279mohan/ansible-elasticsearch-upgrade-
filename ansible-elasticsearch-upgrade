@@ -54,7 +54,7 @@
       no_log: True
       
     - name: stop non essential indexing to speed up shard recovery - no problem if return error (can be ignored)
-      command: curl -u elastic:{{ password }} -X POST "https://{{ ansible_facts['nodename'] }}:61000/_flush/synced?pretty" --cacert /etc/elasticsearch/elastic-certificates-ca_1.pem
+      command: sudo curl -u elastic:{{ password }} -X POST "https://{{ ansible_facts['nodename'] }}:61000/_flush/synced?pretty" --cacert /etc/elasticsearch/elastic-certificates-ca_1.pem
       no_log: True
       
     - name: Stop service Elasticsearch, if not started
