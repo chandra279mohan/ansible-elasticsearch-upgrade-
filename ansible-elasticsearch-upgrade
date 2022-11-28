@@ -14,12 +14,12 @@
   vars:
     es_http_port: 61000
     es_old_version: 7.16.2
-    es_new_version: 7.17.2
+    es_new_version: 7.17.7
     elastic_user: elastic
     elastic_password: ########
     plugins_list : 
       - mapper-size
-    plugin_version: 7.17.2
+    plugin_version: 7.17.7
     elastic_home: /usr/share/elasticsearch
     elastic_config: /etc/elasticsearch
     elastic_home_backup: /opt/elasticsearch_home_backup_7.16.2
@@ -36,7 +36,7 @@
     - name: Take backup of elasticsearch config directory
       ansible.builtin.command: cp -rp "{{elastic_config}}" "{{elastic_config_backup}}"
         
-    - name: Download Elasticsearch RPM package 7.17.2
+    - name: Download Elasticsearch RPM package 7.17.7
       ansible.builtin.get_url:
         url: https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-{{ es_new_version }}-x86_64.rpm
         dest: /opt
