@@ -63,9 +63,7 @@
         state: stopped
 
     - name: upgrade elasticsearch
-      ansible.builtin.yum:
-        name: /opt/elasticsearch-{{ es_new_version }}-x86_64.rpm
-        state: latest
+      ansible.builtin.command: rpm -Uvh /opt/elasticsearch-{{ es_new_version }}-x86_64.rpm
 
     - name: list elasticsearch plugins installed
       command: 
@@ -79,7 +77,6 @@
         cmd: /usr/share/elasticsearch/bin/elasticsearch-plugin remove {{ item }}
       with_items:
         - "{{ plugins_list }}"
-      ignore_errors: yes
       tags:
         - es_plugin_upgrade
 
